@@ -1,4 +1,4 @@
-
+# EJEMPLO DE ALGUNAS OPERACIONES DE SUMA Y RESTA
 .data
 .eqv VALOR 25
 
@@ -10,7 +10,7 @@ main:
 	li t2, 12  				# carga el valor 12 decimal (C hexadecimal) en el registro x7 (t2)
 	li s0, VALOR			# carga el valor 25 decimal (19 hexadecimal) en el registro x8 (s0)
 
-# Calculamos t0 + t1 y lo guardamos en s0 (machacando lo que teníamos en s0)
+# Calculamos t0 + t1 y lo guardamos en s0 (machacando lo que tenÃ­amos en s0)
 	add s0, t0, t1
 	
 # Calculamos t2 + VALOR (25 en decimal) y lo guardamos en s1 
