@@ -1,7 +1,7 @@
 # PROGRAMA PARA FAMILIARIZARSE CON RARS
 # RARS: RISC-V Assembler and Runtime Simulator
 .data 
-mensaje: .ascii  "�Bienvenidos a Estructura de Computadores UAX!\n\n"
+mensaje: .ascii  "¡Bienvenidos a Estructura de Computadores UAX!\n\n"
 .eqv finaliza, 10
 .eqv imprime 4
 
