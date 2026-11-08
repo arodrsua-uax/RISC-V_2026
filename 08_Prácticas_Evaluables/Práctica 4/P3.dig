@@ -1,0 +1,458 @@
+<?xml version="1.0" encoding="utf-8"?>
+<circuit>
+  <version>2</version>
+  <attributes>
+    <entry>
+      <string>Description</string>
+      <string>The program counter.
+Here the current program counter is stored.
+The various inputs can be used to influence how the 
+program counter is modified if a clock signal happens.
+
+{{de Der Programmzähler. 
+Hier wird der aktuelle Programmzähler gespeichert. 
+Über die verschiedenen Eingänge kann beeinflußt 
+werden, auf welche Weise der Programmzähler mit 
+dem Takt weiter geschaltet wird.}}</string>
+    </entry>
+    <entry>
+      <string>Width</string>
+      <int>5</int>
+    </entry>
+  </attributes>
+  <visualElements>
+    <visualElement>
+      <elementName>D_FF_AS</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>PC</string>
+        </entry>
+        <entry>
+          <string>Bits</string>
+          <int>32</int>
+        </entry>
+      </elementAttributes>
+      <pos x="-2160" y="240"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Clock</elementName>
+      <elementAttributes>
+        <entry>
+          <string>runRealTime</string>
+          <boolean>true</boolean>
+        </entry>
+        <entry>
+          <string>Label</string>
+          <string>CLK</string>
+        </entry>
+      </elementAttributes>
+      <pos x="-1060" y="-180"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Tunnel</elementName>
+      <elementAttributes>
+        <entry>
+          <string>NetName</string>
+          <string>clk</string>
+        </entry>
+      </elementAttributes>
+      <pos x="-1040" y="-180"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Tunnel</elementName>
+      <elementAttributes>
+        <entry>
+          <string>rotation</string>
+          <rotation rotation="2"/>
+        </entry>
+        <entry>
+          <string>NetName</string>
+          <string>clk</string>
+        </entry>
+      </elementAttributes>
+      <pos x="-2180" y="280"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Const</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Value</string>
+          <long>0</long>
+        </entry>
+      </elementAttributes>
+      <pos x="-2180" y="180"/>
+    </visualElement>
+    <visualElement>
+      <elementName>In</elementName>
+      <elementAttributes>
+        <entry>
+          <string>rotation</string>
+          <rotation rotation="1"/>
+        </entry>
+        <entry>
+          <string>Label</string>
+          <string>Rst</string>
+        </entry>
+      </elementAttributes>
+      <pos x="-2180" y="360"/>
+    </visualElement>
+    <visualElement>
+      <elementName>ROM</elementName>
+      <elementAttributes>
+        <entry>
+          <string>AddrBits</string>
+          <int>10</int>
+        </entry>
+        <entry>
+          <string>Label</string>
+          <string>MemoInstr</string>
+        </entry>
+        <entry>
+          <string>Bits</string>
+          <int>32</int>
+        </entry>
+        <entry>
+          <string>lastDataFile</string>
+          <file>C:\DIGITAL\Digital\examples\processor\core\prueba_completa.hex</file>
+        </entry>
+        <entry>
+          <string>autoReload</string>
+          <boolean>true</boolean>
+        </entry>
+      </elementAttributes>
+      <pos x="-1940" y="260"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Controller.dig</elementName>
+      <elementAttributes>
+        <entry>
+          <string>shapeType</string>
+          <shapeType>MINIMIZED</shapeType>
+        </entry>
+      </elementAttributes>
+      <pos x="-1200" y="-40"/>
+    </visualElement>
+    <visualElement>
+      <elementName>External</elementName>
+      <elementAttributes>
+        <entry>
+          <string>applicationType</string>
+          <appType>IVERILOG</appType>
+        </entry>
+        <entry>
+          <string>Label</string>
+          <string>extend</string>
+        </entry>
+        <entry>
+          <string>externalInputs</string>
+          <string>instr:32</string>
+        </entry>
+        <entry>
+          <string>Width</string>
+          <int>8</int>
+        </entry>
+        <entry>
+          <string>externalOutputs</string>
+          <string>immext:32</string>
+        </entry>
+        <entry>
+          <string>Code</string>
+          <string>module extend (
+    input  logic [31:0] instr,
+    output logic [31:0] immext
+);
+
+  always_comb begin
+    case (instr[6:0])
+      7&apos;b0010011, 7&apos;b0000011, 7&apos;b1100111:
+        immext = {{20{instr[31]}}, instr[31:20]};                                           // I
+      7&apos;b0100011:
+        immext = {{20{instr[31]}}, instr[31:25], instr[11:7]};                              // S
+      7&apos;b1100011:
+        immext = {{19{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1&apos;b0};   // B
+      7&apos;b0110111, 7&apos;b0010111:
+        immext = {instr[31:12], 12&apos;b0};                                                     // U
+      7&apos;b1101111:
+        immext = {{11{instr[31]}}, instr[31], instr[19:12], instr[20], instr[30:21], 1&apos;b0}; // J
+      default:
+        immext = &apos;0;
+    endcase
+  end
+endmodule</string>
+        </entry>
+        <entry>
+          <string>iverilogOptions</string>
+          <string>-g2012</string>
+        </entry>
+      </elementAttributes>
+      <pos x="-1740" y="480"/>
+    </visualElement>
+    <visualElement>
+      <elementName>External</elementName>
+      <elementAttributes>
+        <entry>
+          <string>applicationType</string>
+          <appType>IVERILOG</appType>
+        </entry>
+        <entry>
+          <string>Label</string>
+          <string>alu</string>
+        </entry>
+        <entry>
+          <string>externalInputs</string>
+          <string>alucontrol:4,a:32,b:32</string>
+        </entry>
+        <entry>
+          <string>Width</string>
+          <int>8</int>
+        </entry>
+        <entry>
+          <string>externalOutputs</string>
+          <string>zero,result:32</string>
+        </entry>
+        <entry>
+          <string>Code</string>
+          <string>module alu_shifter (
+    input  logic [31:0] a,
+    input  logic [4:0]  shamt,
+    input  logic [3:0]  alucontrol,
+    output logic [31:0] y
+);
+
+  always_comb begin
+    case (alucontrol)
+      4&apos;b1001: y = a &lt;&lt; shamt;            // SLL
+      4&apos;b1010: y = a &gt;&gt; shamt;            // SRL
+      4&apos;b1011: y = $signed(a) &gt;&gt;&gt; shamt;  // SRA
+      default: y = 32&apos;h0;
+    endcase
+  end
+
+endmodule
+
+// ---------------------------------------------------------------------
+// Comparador: SLT, SLTU
+// ---------------------------------------------------------------------
+module alu_cmp (
+    input  logic [31:0] a,
+    input  logic [31:0] b,
+    input  logic [3:0]  alucontrol,
+    output logic [31:0] y
+);
+
+  always_comb begin
+    case (alucontrol)
+      4&apos;b0101: y = {31&apos;b0, $signed(a) &lt; $signed(b)};  // SLT
+      4&apos;b1100: y = {31&apos;b0, a &lt; b};                    // SLTU
+      default: y = 32&apos;h0;
+    endcase
+  end
+
+endmodule
+
+// ---------------------------------------------------------------------
+// ALU: el case solo selecciona el resultado
+// ---------------------------------------------------------------------
+module alu (
+    input  logic [31:0] a,
+    input  logic [31:0] b,
+    input  logic [3:0]  alucontrol,
+    output logic [31:0] result,
+    output logic        zero
+);
+
+  logic [31:0] shift_res, cmp_res;
+
+  alu_shifter u_shifter (
+      .a         (a),
+      .shamt     (b[4:0]),
+      .alucontrol(alucontrol),
+      .y         (shift_res)   // salida del módulo de desplazamiento
+  );
+
+  alu_cmp u_cmp (
+      .a         (a),
+      .b         (b),
+      .alucontrol(alucontrol),
+      .y         (cmp_res)    // salida del módulo de comparación
+  );
+
+  always_comb begin
+    case (alucontrol)
+
+      4&apos;b0000: result = a + b;            // ADD
+      4&apos;b0001: result = a - b;            // SUB
+      4&apos;b0010: result = a &amp; b;            // AND
+      4&apos;b0011: result = a | b;            // OR
+      4&apos;b1000: result = a ^ b;            // XOR
+
+      4&apos;b0101,                            // SLT
+      4&apos;b1100: result = cmp_res;          // SLTU Salida del módulo de comparación
+
+      4&apos;b1001,                            // SLL
+      4&apos;b1010,                            // SRL
+      4&apos;b1011: result = shift_res;        // SRA  Salida del módulo de desplazamiento
+
+      default: result = 32&apos;hDEADBEEF;     // valor por defecto para depuración
+    endcase
+  end
+
+  assign zero = (result == 32&apos;h0);
+
+endmodule</string>
+        </entry>
+        <entry>
+          <string>iverilogOptions</string>
+          <string>-g2012</string>
+        </entry>
+      </elementAttributes>
+      <pos x="-1200" y="340"/>
+    </visualElement>
+    <visualElement>
+      <elementName>External</elementName>
+      <elementAttributes>
+        <entry>
+          <string>applicationType</string>
+          <appType>IVERILOG</appType>
+        </entry>
+        <entry>
+          <string>Label</string>
+          <string>storealign</string>
+        </entry>
+        <entry>
+          <string>externalInputs</string>
+          <string>funct3:3,addr:2,rs2_data:32</string>
+        </entry>
+        <entry>
+          <string>Width</string>
+          <int>10</int>
+        </entry>
+        <entry>
+          <string>externalOutputs</string>
+          <string>byte_en:4,write_data:32</string>
+        </entry>
+        <entry>
+          <string>Code</string>
+          <string>module storealign (
+  input  logic [2:0]  funct3,      // 000: sb, 001: sh, 010: sw
+  input  logic [1:0]  addr,        // dos bits bajos de la dirección
+  input  logic [31:0] rs2_data,
+  output logic [31:0] write_data,
+  output logic [3:0]  byte_en
+);
+
+  always_comb begin
+    case (funct3[1:0])
+      2&apos;b00: begin   // sb
+        write_data = {4{rs2_data[7:0]}};
+        byte_en    = 4&apos;b0001 &lt;&lt; addr;
+      end
+      2&apos;b01: begin   // sh (addr[0] se ignora: accesos no alineados no soportados)
+        write_data = {2{rs2_data[15:0]}};
+        byte_en    = addr[1] ? 4&apos;b1100 : 4&apos;b0011;
+      end
+      default: begin // sw
+        write_data = rs2_data;
+        byte_en    = 4&apos;b1111;
+      end
+    endcase
+  end
+endmodule</string>
+        </entry>
+        <entry>
+          <string>iverilogOptions</string>
+          <string>-g2012</string>
+        </entry>
+      </elementAttributes>
+      <pos x="-940" y="360"/>
+    </visualElement>
+    <visualElement>
+      <elementName>External</elementName>
+      <elementAttributes>
+        <entry>
+          <string>applicationType</string>
+          <appType>IVERILOG</appType>
+        </entry>
+        <entry>
+          <string>Label</string>
+          <string>loadext</string>
+        </entry>
+        <entry>
+          <string>externalInputs</string>
+          <string>funct3:3,addr:2,mem_data:32</string>
+        </entry>
+        <entry>
+          <string>Width</string>
+          <int>8</int>
+        </entry>
+        <entry>
+          <string>externalOutputs</string>
+          <string>read_data:32</string>
+        </entry>
+        <entry>
+          <string>Code</string>
+          <string>module loadext (
+  input  logic [2:0]  funct3,      // 000: lb, 001: lh, 010: lw, 100: lbu, 101: lhu
+  input  logic [1:0]  addr,        // dos bits bajos de la dirección
+  input  logic [31:0] mem_data,
+  output logic [31:0] read_data
+);
+
+  logic [7:0]  byte_sel;
+  logic [15:0] half_sel;
+
+  assign byte_sel = mem_data[8*addr +: 8];
+  assign half_sel = addr[1] ? mem_data[31:16] : mem_data[15:0];   // addr[0] se ignora
+
+  always_comb begin
+    case (funct3)
+      3&apos;b000:  read_data = {{24{byte_sel[7]}},  byte_sel};   // lb
+      3&apos;b001:  read_data = {{16{half_sel[15]}}, half_sel};   // lh
+      3&apos;b100:  read_data = {24&apos;b0, byte_sel};                // lbu
+      3&apos;b101:  read_data = {16&apos;b0, half_sel};                // lhu
+      default: read_data = mem_data;                         // lw
+    endcase
+  end
+endmodule</string>
+        </entry>
+        <entry>
+          <string>iverilogOptions</string>
+          <string>-g2012</string>
+        </entry>
+      </elementAttributes>
+      <pos x="-180" y="300"/>
+    </visualElement>
+  </visualElements>
+  <wires>
+    <wire>
+      <p1 x="-2180" y="240"/>
+      <p2 x="-2160" y="240"/>
+    </wire>
+    <wire>
+      <p1 x="-1060" y="-180"/>
+      <p2 x="-1040" y="-180"/>
+    </wire>
+    <wire>
+      <p1 x="-1220" y="340"/>
+      <p2 x="-1200" y="340"/>
+    </wire>
+    <wire>
+      <p1 x="-2180" y="280"/>
+      <p2 x="-2160" y="280"/>
+    </wire>
+    <wire>
+      <p1 x="-2180" y="300"/>
+      <p2 x="-2160" y="300"/>
+    </wire>
+    <wire>
+      <p1 x="-2180" y="300"/>
+      <p2 x="-2180" y="360"/>
+    </wire>
+    <wire>
+      <p1 x="-2180" y="180"/>
+      <p2 x="-2180" y="240"/>
+    </wire>
+  </wires>
+  <measurementOrdering/>
+</circuit>

@@ -1,0 +1,474 @@
+<?xml version="1.0" encoding="utf-8"?>
+<circuit>
+  <version>2</version>
+  <attributes>
+    <entry>
+      <string>Description</string>
+      <string>The program counter.
+Here the current program counter is stored.
+The various inputs can be used to influence how the 
+program counter is modified if a clock signal happens.
+
+{{de Der Programmzähler. 
+Hier wird der aktuelle Programmzähler gespeichert. 
+Über die verschiedenen Eingänge kann beeinflußt 
+werden, auf welche Weise der Programmzähler mit 
+dem Takt weiter geschaltet wird.}}</string>
+    </entry>
+    <entry>
+      <string>romContent</string>
+      <romList>
+        <roms/>
+      </romList>
+    </entry>
+    <entry>
+      <string>Width</string>
+      <int>5</int>
+    </entry>
+  </attributes>
+  <visualElements>
+    <visualElement>
+      <elementName>External</elementName>
+      <elementAttributes>
+        <entry>
+          <string>applicationType</string>
+          <appType>IVERILOG</appType>
+        </entry>
+        <entry>
+          <string>Label</string>
+          <string>controldec</string>
+        </entry>
+        <entry>
+          <string>externalInputs</string>
+          <string>instr:32</string>
+        </entry>
+        <entry>
+          <string>Width</string>
+          <int>7</int>
+        </entry>
+        <entry>
+          <string>externalOutputs</string>
+          <string>RegWrite,MemWrite,ResultSrc:2,ALUSrc,ASrc,ALUControl:4,Branch,Jump,Jalr</string>
+        </entry>
+        <entry>
+          <string>Code</string>
+          <string>module controldec (
+  input  logic [31:0] instr,
+  output logic        RegWrite, MemWrite, Branch, Jump, Jalr,
+  output logic [1:0]  ResultSrc,
+  output logic        ALUSrc, ASrc,
+  output logic [3:0]  ALUControl
+);
+
+  always_comb begin
+    // Valores por defecto
+    RegWrite   = 0;
+    MemWrite   = 0;
+    Branch     = 0;
+    Jump       = 0;
+    Jalr       = 0;
+    ResultSrc  = 2&apos;b00;
+    ALUSrc     = 0;
+    ASrc       = 0;       // 0: primer operando de la ALU es rs1, 1: es el PC
+    ALUControl = 4&apos;b0000;
+
+    case (instr[6:0])
+      // R-type e I-type aritmética: misma decodificación de funct3
+      7&apos;b0110011, 7&apos;b0010011: begin
+        RegWrite   = 1;
+        ResultSrc  = 2&apos;b00;   // ALUResult
+        ALUSrc     = ~instr[5]; // 0 en tipo R (registro), 1 en tipo I (inmediato)
+        case (instr[14:12])
+          3&apos;b000: ALUControl = (instr[5] &amp; instr[30]) ? 4&apos;b0001 : 4&apos;b0000; // sub o add/addi
+          3&apos;b001: ALUControl = 4&apos;b1001;                                     // sll, slli
+          3&apos;b010: ALUControl = 4&apos;b0101;                                     // slt, slti
+          3&apos;b011: ALUControl = 4&apos;b1100;                                     // sltu, sltiu
+          3&apos;b100: ALUControl = 4&apos;b1000;                                     // xor, xori
+          3&apos;b101: ALUControl = instr[30] ? 4&apos;b1011 : 4&apos;b1010;               // sra/srai o srl/srli
+          3&apos;b110: ALUControl = 4&apos;b0011;                                     // or, ori
+          3&apos;b111: ALUControl = 4&apos;b0010;                                     // and, andi
+        endcase
+      end
+
+      // I-type (load)
+      7&apos;b0000011: begin
+        RegWrite   = 1;
+        ResultSrc  = 2&apos;b01;   // ReadData
+        ALUSrc     = 1;       // segundo operando de la ALU viene de la extensión inmediata
+        ALUControl = 4&apos;b0000; // add (para calcular la dirección)
+      end
+
+      // S-type (store)
+      7&apos;b0100011: begin
+        MemWrite   = 1;
+        ALUSrc     = 1;       // segundo operando de la ALU viene de la extensión inmediata
+        ALUControl = 4&apos;b0000; // add (para calcular la dirección)
+      end
+
+      // B-type (branch): la ALU compara rs1 y rs2; el controller decide
+      // con Zero y funct3 si se salta
+      7&apos;b1100011: begin
+        Branch     = 1;
+        ALUSrc     = 0;       // segundo operando de la ALU viene del registro
+        case (instr[14:13])
+          2&apos;b00:   ALUControl = 4&apos;b0001; // beq, bne: sub (Zero = iguales)
+          2&apos;b10:   ALUControl = 4&apos;b0101; // blt, bge: slt (Zero = no menor con signo)
+          2&apos;b11:   ALUControl = 4&apos;b1100; // bltu, bgeu: sltu (Zero = no menor sin signo)
+          default: ALUControl = 4&apos;b0001; // funct3 = 01x no existe
+        endcase
+      end
+
+      // U-type (lui): rd = inmediato U, sin pasar por la ALU
+      7&apos;b0110111: begin
+        RegWrite   = 1;
+        ResultSrc  = 2&apos;b11;   // ImmExt
+      end
+
+      // U-type (auipc): rd = PC + inmediato U, calculado en la ALU
+      7&apos;b0010111: begin
+        RegWrite   = 1;
+        ResultSrc  = 2&apos;b00;   // ALUResult
+        ASrc       = 1;       // primer operando de la ALU es el PC
+        ALUSrc     = 1;       // segundo operando de la ALU es la extensión inmediata
+        ALUControl = 4&apos;b0000; // add
+      end
+
+      // J-type (jal)
+      7&apos;b1101111: begin
+        RegWrite   = 1;
+        ResultSrc  = 2&apos;b10;   // PC+4
+        Jump       = 1;
+      end
+
+      // I-type (jalr): rd = PC+4, PC = (rs1 + inmediato) &amp; ~1, calculado en la ALU
+      7&apos;b1100111: begin
+        RegWrite   = 1;
+        ResultSrc  = 2&apos;b10;   // PC+4
+        ALUSrc     = 1;       // segundo operando de la ALU es la extensión inmediata
+        ALUControl = 4&apos;b0000; // add
+        Jalr       = 1;
+      end
+    endcase
+  end
+endmodule</string>
+        </entry>
+        <entry>
+          <string>iverilogOptions</string>
+          <string>-g2012</string>
+        </entry>
+      </elementAttributes>
+      <pos x="-1560" y="-300"/>
+    </visualElement>
+    <visualElement>
+      <elementName>External</elementName>
+      <elementAttributes>
+        <entry>
+          <string>applicationType</string>
+          <appType>IVERILOG</appType>
+        </entry>
+        <entry>
+          <string>Label</string>
+          <string>branchlogic</string>
+        </entry>
+        <entry>
+          <string>externalInputs</string>
+          <string>Branch,Jump,Jalr,funct3:3,Zero</string>
+        </entry>
+        <entry>
+          <string>Width</string>
+          <int>7</int>
+        </entry>
+        <entry>
+          <string>externalOutputs</string>
+          <string>PCSrc:2</string>
+        </entry>
+        <entry>
+          <string>Code</string>
+          <string>module branchlogic (
+  input  logic [2:0] funct3,
+  input  logic        Zero, Branch, Jump, Jalr,
+  output logic [1:0]  PCSrc       // 00: PC+4, 01: PC+inmediato (branch, jal), 10: ALUResult (jalr)
+);
+
+  logic Taken;                 // se cumple la condición del salto condicional
+
+  // Condición de salto según funct3 (la ALU ya ha hecho sub, slt o sltu)
+  always_comb begin
+    case (funct3)
+      3&apos;b000:  Taken =  Zero;   // beq:  rs1 == rs2
+      3&apos;b001:  Taken = ~Zero;   // bne:  rs1 != rs2
+      3&apos;b100:  Taken = ~Zero;   // blt:  slt = 1
+      3&apos;b101:  Taken =  Zero;   // bge:  slt = 0
+      3&apos;b110:  Taken = ~Zero;   // bltu: sltu = 1
+      3&apos;b111:  Taken =  Zero;   // bgeu: sltu = 0
+      default: Taken = 1&apos;b0;
+    endcase
+  end
+
+  assign PCSrc = Jalr ? 2&apos;b10 : {1&apos;b0, Jump | (Branch &amp; Taken)};
+endmodule</string>
+        </entry>
+        <entry>
+          <string>iverilogOptions</string>
+          <string>-g2012</string>
+        </entry>
+      </elementAttributes>
+      <pos x="-1340" y="-60"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Splitter</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Input Splitting</string>
+          <string>32</string>
+        </entry>
+        <entry>
+          <string>Output Splitting</string>
+          <string>12,3,17</string>
+        </entry>
+      </elementAttributes>
+      <pos x="-1640" y="-260"/>
+    </visualElement>
+    <visualElement>
+      <elementName>In</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>instr</string>
+        </entry>
+        <entry>
+          <string>Bits</string>
+          <int>32</int>
+        </entry>
+      </elementAttributes>
+      <pos x="-1680" y="-300"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Out</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>PCSrc</string>
+        </entry>
+        <entry>
+          <string>Bits</string>
+          <int>2</int>
+        </entry>
+      </elementAttributes>
+      <pos x="-1180" y="-20"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Out</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>ALUControl</string>
+        </entry>
+        <entry>
+          <string>Bits</string>
+          <int>4</int>
+        </entry>
+      </elementAttributes>
+      <pos x="-1180" y="-100"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Out</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>ASrc</string>
+        </entry>
+      </elementAttributes>
+      <pos x="-1180" y="-140"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Out</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>ALUSrc</string>
+        </entry>
+      </elementAttributes>
+      <pos x="-1180" y="-180"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Out</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>ResultSrc</string>
+        </entry>
+        <entry>
+          <string>Bits</string>
+          <int>2</int>
+        </entry>
+      </elementAttributes>
+      <pos x="-1180" y="-220"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Out</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>MemWrite</string>
+        </entry>
+      </elementAttributes>
+      <pos x="-1180" y="-260"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Out</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>RegWrite</string>
+        </entry>
+      </elementAttributes>
+      <pos x="-1180" y="-300"/>
+    </visualElement>
+    <visualElement>
+      <elementName>In</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>Zero</string>
+        </entry>
+      </elementAttributes>
+      <pos x="-1680" y="20"/>
+    </visualElement>
+  </visualElements>
+  <wires>
+    <wire>
+      <p1 x="-1580" y="0"/>
+      <p2 x="-1340" y="0"/>
+    </wire>
+    <wire>
+      <p1 x="-1680" y="-260"/>
+      <p2 x="-1640" y="-260"/>
+    </wire>
+    <wire>
+      <p1 x="-1420" y="-260"/>
+      <p2 x="-1280" y="-260"/>
+    </wire>
+    <wire>
+      <p1 x="-1260" y="-260"/>
+      <p2 x="-1180" y="-260"/>
+    </wire>
+    <wire>
+      <p1 x="-1340" y="-100"/>
+      <p2 x="-1180" y="-100"/>
+    </wire>
+    <wire>
+      <p1 x="-1380" y="-40"/>
+      <p2 x="-1340" y="-40"/>
+    </wire>
+    <wire>
+      <p1 x="-1420" y="-200"/>
+      <p2 x="-1340" y="-200"/>
+    </wire>
+    <wire>
+      <p1 x="-1680" y="-300"/>
+      <p2 x="-1560" y="-300"/>
+    </wire>
+    <wire>
+      <p1 x="-1420" y="-300"/>
+      <p2 x="-1180" y="-300"/>
+    </wire>
+    <wire>
+      <p1 x="-1420" y="-140"/>
+      <p2 x="-1400" y="-140"/>
+    </wire>
+    <wire>
+      <p1 x="-1320" y="-140"/>
+      <p2 x="-1180" y="-140"/>
+    </wire>
+    <wire>
+      <p1 x="-1620" y="-240"/>
+      <p2 x="-1580" y="-240"/>
+    </wire>
+    <wire>
+      <p1 x="-1420" y="-240"/>
+      <p2 x="-1300" y="-240"/>
+    </wire>
+    <wire>
+      <p1 x="-1200" y="-20"/>
+      <p2 x="-1180" y="-20"/>
+    </wire>
+    <wire>
+      <p1 x="-1400" y="-20"/>
+      <p2 x="-1340" y="-20"/>
+    </wire>
+    <wire>
+      <p1 x="-1420" y="-180"/>
+      <p2 x="-1360" y="-180"/>
+    </wire>
+    <wire>
+      <p1 x="-1300" y="-180"/>
+      <p2 x="-1180" y="-180"/>
+    </wire>
+    <wire>
+      <p1 x="-1680" y="20"/>
+      <p2 x="-1340" y="20"/>
+    </wire>
+    <wire>
+      <p1 x="-1420" y="-280"/>
+      <p2 x="-1260" y="-280"/>
+    </wire>
+    <wire>
+      <p1 x="-1360" y="-60"/>
+      <p2 x="-1340" y="-60"/>
+    </wire>
+    <wire>
+      <p1 x="-1420" y="-220"/>
+      <p2 x="-1320" y="-220"/>
+    </wire>
+    <wire>
+      <p1 x="-1280" y="-220"/>
+      <p2 x="-1180" y="-220"/>
+    </wire>
+    <wire>
+      <p1 x="-1420" y="-160"/>
+      <p2 x="-1380" y="-160"/>
+    </wire>
+    <wire>
+      <p1 x="-1380" y="-160"/>
+      <p2 x="-1380" y="-40"/>
+    </wire>
+    <wire>
+      <p1 x="-1300" y="-240"/>
+      <p2 x="-1300" y="-180"/>
+    </wire>
+    <wire>
+      <p1 x="-1400" y="-140"/>
+      <p2 x="-1400" y="-20"/>
+    </wire>
+    <wire>
+      <p1 x="-1320" y="-220"/>
+      <p2 x="-1320" y="-140"/>
+    </wire>
+    <wire>
+      <p1 x="-1580" y="-240"/>
+      <p2 x="-1580" y="0"/>
+    </wire>
+    <wire>
+      <p1 x="-1340" y="-200"/>
+      <p2 x="-1340" y="-100"/>
+    </wire>
+    <wire>
+      <p1 x="-1260" y="-280"/>
+      <p2 x="-1260" y="-260"/>
+    </wire>
+    <wire>
+      <p1 x="-1680" y="-300"/>
+      <p2 x="-1680" y="-260"/>
+    </wire>
+    <wire>
+      <p1 x="-1360" y="-180"/>
+      <p2 x="-1360" y="-60"/>
+    </wire>
+    <wire>
+      <p1 x="-1280" y="-260"/>
+      <p2 x="-1280" y="-220"/>
+    </wire>
+  </wires>
+  <measurementOrdering/>
+</circuit>
